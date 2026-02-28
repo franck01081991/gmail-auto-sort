@@ -44,7 +44,7 @@ mutate_query() {
   local max_messages="${6:-0}"
   local total_messages=0
   local page_token=""
-  local ids_json message_count remaining_messages payload
+  local ids_json message_count remaining_messages
   local add_ids_json remove_ids_json
 
   add_ids_json="$(labels_to_json "$add_labels_json")"
@@ -85,18 +85,7 @@ mutate_query() {
             api_request POST "$GMAIL_API_BASE/messages/$message_id/trash" '{}'
           done < <(jq -r '.[]' <<<"$ids_json")
         else
-          payload="$(
-            jq -nc \
-              --argjson ids "$ids_json" \
-              --argjson add_ids "$add_ids_json" \
-              --argjson remove_ids "$remove_ids_json" \
-              '{
-                ids: $ids,
-                addLabelIds: $add_ids,
-                removeLabelIds: $remove_ids
-              }'
-          )"
-          api_request POST "$GMAIL_API_BASE/messages/batchModify" "$payload"
+          batch_modify_ids "$ids_json" "$add_ids_json" "$remove_ids_json" "$operation_name"
         fi
         log "[$operation_name] $total_messages messages traités"
       fi
@@ -148,7 +137,7 @@ main() {
 
   mutate_query \
     "Archivage historique bruit hors Inbox" \
-    'in:inbox (label:"📰 Newsletters" OR label:"🔎 Alertes Emploi" OR label:"🛒 Commandes" OR label:"📺 Streaming/Loisirs")' \
+    'in:inbox (label:"📰 Newsletters" OR label:"🔎 Alertes Emploi" OR label:"🛒 Commandes" OR label:"📺 Streaming/Loisirs" OR label:"☁️ Cloud" OR label:"💳 Finances Perso" OR label:"🧾 Paiements")' \
     '[]' \
     '["INBOX","UNREAD","📅 À Traiter"]' \
     false \
@@ -163,12 +152,36 @@ main() {
     2000
 
   mutate_query \
+    "Reclassement finances perso" \
+    'from:bankin.com -label:"💳 Finances Perso"' \
+    '["💳 Finances Perso"]' \
+    '["INBOX","UNREAD","📅 À Traiter"]' \
+    false \
+    10000
+
+  mutate_query \
+    "Reclassement paiements" \
+    '((from:paypal.fr OR from:communications.paypal.com OR from:googleplay-noreply@google.com) AND subject:(paiement OR reçu OR recu OR commande OR confirmation)) -label:"🧾 Paiements"' \
+    '["🧾 Paiements"]' \
+    '["INBOX","UNREAD","📅 À Traiter"]' \
+    false \
+    5000
+
+  mutate_query \
     "Reclassement alertes emploi" \
-    '((label:"💼 Recrutement" OR label:"📌 Administratif") (from:linkedin.com OR from:hellowork.com OR from:collective.work OR from:notify-noreply@google.com)) OR (label:"💼 Recrutement" from:jobs-noreply@linkedin.com)' \
+    '((label:"💼 Recrutement" OR label:"📌 Administratif") (from:linkedin.com OR from:hellowork.com OR from:collective.work OR from:notify-noreply@google.com OR from:agent@mail.ictjob.be OR from:hello@moovijob.com OR from:subscribe@fr.jooble.org OR from:communication@ecole-ipssi.com OR from:ne-pas-repondre@meteojob.com OR from:email.hays.com OR from:hello.talent@landing.jobs OR from:noreply2.jobs2web.com)) OR (label:"💼 Recrutement" from:jobs-noreply@linkedin.com) OR (in:inbox subject:"[Job Alerts]")' \
     '["🔎 Alertes Emploi"]' \
     '["💼 Recrutement","📌 Administratif","📅 À Traiter","UNREAD","INBOX"]' \
     false \
     20000
+
+  mutate_query \
+    "Reclassement newsletters éditoriales" \
+    '(from:notifications@actionpopulaire.fr OR from:abonnes@newsletters.leparisien.fr OR from:journal-l-humanite@humanite.fr OR from:contact@all-hands.dev OR from:announcements@daytona.io OR from:discover2@myheritage.com OR from:info@lvsl.fr OR from:sophie@jeveuxaider.beta.gouv.fr OR from:contact@victoirespopulaires.fr OR from:info@allovoisins.com OR from:contact@clubdeletoile.fr OR from:website@huggingface.co) -label:"📰 Newsletters"' \
+    '["📰 Newsletters"]' \
+    '["INBOX","UNREAD","📅 À Traiter"]' \
+    false \
+    10000
 
   mutate_query \
     "Reclassement ATS utiles" \
@@ -180,7 +193,7 @@ main() {
 
   mutate_query \
     "Nettoyage À Traiter bruit et ancien" \
-    'label:"📅 À Traiter" (older_than:14d OR label:"📰 Newsletters" OR label:"🔎 Alertes Emploi" OR label:"🛒 Commandes" OR label:"📺 Streaming/Loisirs" OR label:"☁️ Cloud" OR from:franck.sembin.apou@gmail.com)' \
+    'label:"📅 À Traiter" (older_than:14d OR label:"📰 Newsletters" OR label:"🔎 Alertes Emploi" OR label:"🛒 Commandes" OR label:"📺 Streaming/Loisirs" OR label:"☁️ Cloud" OR label:"💳 Finances Perso" OR label:"🧾 Paiements" OR from:franck.sembin.apou@gmail.com OR from:bankin.com)' \
     '[]' \
     '["📅 À Traiter"]' \
     false \
@@ -188,7 +201,7 @@ main() {
 
   mutate_query \
     "Marquage lu historique bruit" \
-    '(label:"📰 Newsletters" OR label:"🔎 Alertes Emploi" OR label:"🛒 Commandes" OR label:"📺 Streaming/Loisirs") is:unread older_than:7d' \
+    '(label:"📰 Newsletters" OR label:"🔎 Alertes Emploi" OR label:"🛒 Commandes" OR label:"📺 Streaming/Loisirs" OR label:"💳 Finances Perso" OR label:"🧾 Paiements" OR label:"☁️ Cloud") is:unread older_than:7d' \
     '[]' \
     '["UNREAD"]' \
     false \

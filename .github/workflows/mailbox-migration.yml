@@ -1,4 +1,4 @@
-name: Gmail Mailbox Migration
+name: Gmail Reconcile
 
 on:
   workflow_dispatch:
@@ -28,10 +28,10 @@ jobs:
           curl --version
           jq --version
 
-      - name: Run mailbox migration
+      - name: Run mailbox reconciliation
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
-        run: bash scripts/gmail-migrate-mailbox.sh
+        run: bash scripts/gmail-reconcile.sh

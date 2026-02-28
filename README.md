@@ -37,13 +37,13 @@ DRY_RUN=true bash scripts/gmail-sort.sh
 Pour nettoyer l'historique existant des labels et des non lus bruit :
 
 ```bash
-DRY_RUN=true bash scripts/gmail-migrate-mailbox.sh
+DRY_RUN=true bash scripts/gmail-reconcile.sh
 ```
 
 Puis, si le résultat te convient :
 
 ```bash
-DRY_RUN=false bash scripts/gmail-migrate-mailbox.sh
+DRY_RUN=false bash scripts/gmail-reconcile.sh
 ```
 
 ## Règles de tri
@@ -60,6 +60,8 @@ Les règles ont été resserrées pour :
 
 - séparer `☁️ Cloud` des newsletters
 - sortir les plateformes emploi du label `💼 Recrutement`
+- classer automatiquement `Bankin`, `PayPal` et `Google Play`
+- classer les alertes emploi auto secondaires et les newsletters éditoriales restantes
 - limiter `📅 À Traiter` aux non lus récents et réellement actionnables
 - éviter de retraiter les mêmes messages grâce aux exclusions `-label:"..."`
 
@@ -80,12 +82,14 @@ La purge est configurée en deux étapes :
 
 Cette approche évite de supprimer brutalement des mails dès leur première détection.
 
-## Migration de l'historique
+## Réconciliation de l'historique
 
-Le script `scripts/gmail-migrate-mailbox.sh` applique des corrections ciblées sur l'existant :
+Le script `scripts/gmail-reconcile.sh` applique des corrections ciblées sur l'existant :
 
 - reclasse `PlatformNotifications-noreply@google.com` vers `☁️ Cloud`
 - déplace les plateformes emploi hors de `💼 Recrutement` et `📌 Administratif`
+- archive le bruit déjà labellisé mais encore présent dans `INBOX`
+- reclasse les notifications `Bankin`, `PayPal`, `Google Play`, presse et newsletters restantes
 - retire `📅 À Traiter` des vieux mails et du bruit
 - marque comme lus les anciens emails déjà classés comme bruit
 

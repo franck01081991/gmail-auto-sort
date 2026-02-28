@@ -65,6 +65,39 @@ oauth_request() {
   rm -f "$response_file"
 }
 
+http_request_once() {
+  local method="$1"
+  local url="$2"
+  local body="${3:-}"
+  local response_file
+
+  response_file="$(mktemp)"
+
+  if [[ "$method" == "GET" ]]; then
+    RESPONSE_STATUS="$(
+      curl -sS \
+        -o "$response_file" \
+        -w '%{http_code}' \
+        -H "Authorization: Bearer $ACCESS_TOKEN" \
+        "$url"
+    )"
+  else
+    RESPONSE_STATUS="$(
+      curl -sS \
+        -o "$response_file" \
+        -w '%{http_code}' \
+        -X "$method" \
+        -H "Authorization: Bearer $ACCESS_TOKEN" \
+        -H 'Content-Type: application/json' \
+        "$url" \
+        -d "$body"
+    )"
+  fi
+
+  RESPONSE_BODY="$(<"$response_file")"
+  rm -f "$response_file"
+}
+
 refresh_access_token() {
   oauth_request
   if [[ "$RESPONSE_STATUS" != "200" ]]; then
@@ -79,7 +112,7 @@ refresh_access_token() {
   fi
 }
 
-api_request() {
+api_request_nonfatal() {
   local method="$1"
   local url="$2"
   local body="${3:-}"
@@ -87,32 +120,7 @@ api_request() {
   local retry_delay=1
 
   while true; do
-    local response_file
-    response_file="$(mktemp)"
-
-    if [[ "$method" == "GET" ]]; then
-      RESPONSE_STATUS="$(
-        curl -sS \
-          -o "$response_file" \
-          -w '%{http_code}' \
-          -H "Authorization: Bearer $ACCESS_TOKEN" \
-          "$url"
-      )"
-    else
-      RESPONSE_STATUS="$(
-        curl -sS \
-          -o "$response_file" \
-          -w '%{http_code}' \
-          -X "$method" \
-          -H "Authorization: Bearer $ACCESS_TOKEN" \
-          -H 'Content-Type: application/json' \
-          "$url" \
-          -d "$body"
-      )"
-    fi
-
-    RESPONSE_BODY="$(<"$response_file")"
-    rm -f "$response_file"
+    http_request_once "$method" "$url" "$body"
 
     if [[ "$RESPONSE_STATUS" =~ ^2 ]]; then
       return 0
@@ -132,9 +140,19 @@ api_request() {
       continue
     fi
 
+    return 1
+  done
+}
+
+api_request() {
+  local method="$1"
+  local url="$2"
+  local body="${3:-}"
+
+  if ! api_request_nonfatal "$method" "$url" "$body"; then
     printf 'Echec Gmail API %s %s (%s): %s\n' "$method" "$url" "$RESPONSE_STATUS" "$RESPONSE_BODY" >&2
     exit 1
-  done
+  fi
 }
 
 fetch_labels() {
@@ -222,6 +240,47 @@ describe_action() {
   printf 'classés\n'
 }
 
+batch_modify_ids() {
+  local ids_json="$1"
+  local add_ids_json="$2"
+  local remove_ids_json="$3"
+  local operation_name="$4"
+  local count mid left_ids right_ids payload
+
+  count="$(jq 'length' <<<"$ids_json")"
+  if (( count == 0 )); then
+    return 0
+  fi
+
+  payload="$(
+    jq -nc \
+      --argjson ids "$ids_json" \
+      --argjson add_ids "$add_ids_json" \
+      --argjson remove_ids "$remove_ids_json" \
+      '{
+        ids: $ids,
+        addLabelIds: $add_ids,
+        removeLabelIds: $remove_ids
+      }'
+  )"
+
+  if api_request_nonfatal POST "$GMAIL_API_BASE/messages/batchModify" "$payload"; then
+    return 0
+  fi
+
+  if (( count == 1 )); then
+    printf '[%s] message ignoré après échec batchModify (%s): %s\n' \
+      "$operation_name" "$RESPONSE_STATUS" "$(jq -r '.[0]' <<<"$ids_json")" >&2
+    return 0
+  fi
+
+  mid=$((count / 2))
+  left_ids="$(jq -c --argjson mid "$mid" '.[:$mid]' <<<"$ids_json")"
+  right_ids="$(jq -c --argjson mid "$mid" '.[$mid:]' <<<"$ids_json")"
+  batch_modify_ids "$left_ids" "$add_ids_json" "$remove_ids_json" "$operation_name"
+  batch_modify_ids "$right_ids" "$add_ids_json" "$remove_ids_json" "$operation_name"
+}
+
 apply_rule() {
   local rule_json="$1"
   local rule_name label_name query archive mark_read trash label_id page_token total_messages
@@ -288,18 +347,7 @@ apply_rule() {
             api_request POST "$GMAIL_API_BASE/messages/$message_id/trash" '{}'
           done < <(jq -r '.[]' <<<"$ids_json")
         else
-          payload="$(
-            jq -nc \
-              --argjson ids "$ids_json" \
-              --argjson add_ids "$add_json" \
-              --argjson remove_ids "$remove_json" \
-              '{
-                ids: $ids,
-                addLabelIds: $add_ids,
-                removeLabelIds: $remove_ids
-              }'
-          )"
-          api_request POST "$GMAIL_API_BASE/messages/batchModify" "$payload"
+          batch_modify_ids "$ids_json" "$add_json" "$remove_json" "$rule_name"
         fi
         log "[$rule_name] $total_messages messages traités"
       fi
