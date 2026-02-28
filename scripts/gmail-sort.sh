@@ -145,10 +145,21 @@ fetch_labels() {
   done < <(jq -r '.labels[]? | [.name, .id] | @tsv' <<<"$RESPONSE_BODY")
 }
 
-ensure_label() {
+lookup_label_id() {
   local label_name="$1"
 
   if [[ -n "${LABEL_CACHE[$label_name]:-}" ]]; then
+    printf '%s\n' "${LABEL_CACHE[$label_name]}"
+    return 0
+  fi
+
+  printf '\n'
+}
+
+ensure_label() {
+  local label_name="$1"
+
+  if [[ -n "$(lookup_label_id "$label_name")" ]]; then
     printf '%s\n' "${LABEL_CACHE[$label_name]}"
     return 0
   fi
@@ -335,4 +346,6 @@ main() {
   log 'Tri des emails terminé.'
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

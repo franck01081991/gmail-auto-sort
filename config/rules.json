@@ -1,23 +1,28 @@
 [
   {
     "label": "📌 Administratif",
-    "query": "in:inbox (from:banquepostale.fr OR from:floa.fr OR subject:(solde OR releve OR relevé OR securite OR sécurité OR facture)) -label:\"📌 Administratif\"",
+    "query": "in:inbox (from:banquepostale.fr OR from:voscomptesenligne.labanquepostale.fr OR from:floa.fr OR from:operation.floa.com OR from:app.assurance-maladie.fr OR from:s2e-net.com OR from:ionos.fr OR from:sapinet.fr) -label:\"📌 Administratif\"",
     "archive": false
   },
   {
     "label": "🔎 Alertes Emploi",
-    "query": "in:inbox (from:linkedin.com OR from:hellowork.com OR from:collective.work) -label:\"🔎 Alertes Emploi\"",
+    "query": "in:inbox (from:linkedin.com OR from:hellowork.com OR from:collective.work OR from:notify-noreply@google.com) -label:\"🔎 Alertes Emploi\"",
     "archive": true,
     "mark_read": true
   },
   {
     "label": "💼 Recrutement",
-    "query": "in:inbox subject:(recrutement OR candidature OR entretien OR mission) -label:\"🔎 Alertes Emploi\" -label:\"💼 Recrutement\"",
+    "query": "in:inbox ((from:recruitee.com OR from:greenhouse.io OR from:lever.co OR from:teamtailor.com OR from:smartrecruiters.com OR from:workday.com OR from:ashbyhq.com OR from:indeed.com) OR subject:(candidature OR entretien OR recruteur OR recrutement OR mission OR proposition)) -from:linkedin.com -from:hellowork.com -from:collective.work -from:notify-noreply@google.com -label:\"💼 Recrutement\"",
+    "archive": false
+  },
+  {
+    "label": "☁️ Cloud",
+    "query": "in:inbox from:PlatformNotifications-noreply@google.com -label:\"☁️ Cloud\"",
     "archive": false
   },
   {
     "label": "🛒 Commandes",
-    "query": "in:inbox (from:amazon.fr OR from:amazon.com OR from:uber.com OR from:cdiscount.com OR subject:(commande OR livraison OR expedi OR expédi)) -label:\"🛒 Commandes\"",
+    "query": "in:inbox ((from:amazon.fr OR from:amazon.com OR from:cdiscount.com) OR ((from:uber.com OR from:ubereats@uber.com) AND subject:(commande OR livraison OR reçu OR facture))) -subject:(commandez OR promotion OR offre) -label:\"🛒 Commandes\"",
     "archive": true,
     "mark_read": true
   },
@@ -29,7 +34,7 @@
   },
   {
     "label": "📰 Newsletters",
-    "query": "in:inbox category:promotions -label:\"📰 Newsletters\"",
+    "query": "in:inbox (category:promotions OR from:medium.com OR from:news.thefork.fr OR from:songkick.com OR from:umusic-online.com) -from:PlatformNotifications-noreply@google.com -from:no-reply@operation.floa.com -from:notification@voscomptesenligne.labanquepostale.fr -label:\"📰 Newsletters\"",
     "archive": true,
     "mark_read": true
   },
@@ -40,7 +45,7 @@
   },
   {
     "label": "📅 À Traiter",
-    "query": "in:inbox is:unread -category:promotions -category:social -label:\"📰 Newsletters\" -label:\"🛒 Commandes\" -label:\"📺 Streaming/Loisirs\" -label:\"🔎 Alertes Emploi\" -label:\"📅 À Traiter\"",
+    "query": "in:inbox is:unread newer_than:14d -category:promotions -category:social -label:\"📰 Newsletters\" -label:\"🛒 Commandes\" -label:\"📺 Streaming/Loisirs\" -label:\"🔎 Alertes Emploi\" -label:\"☁️ Cloud\" -label:\"📅 À Traiter\" -from:franck.sembin.apou@gmail.com -from:PlatformNotifications-noreply@google.com",
     "archive": false
   },
   {

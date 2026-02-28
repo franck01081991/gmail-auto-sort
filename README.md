@@ -34,6 +34,18 @@ Pour tester sans modifier Gmail :
 DRY_RUN=true bash scripts/gmail-sort.sh
 ```
 
+Pour nettoyer l'historique existant des labels et des non lus bruit :
+
+```bash
+DRY_RUN=true bash scripts/gmail-migrate-mailbox.sh
+```
+
+Puis, si le résultat te convient :
+
+```bash
+DRY_RUN=false bash scripts/gmail-migrate-mailbox.sh
+```
+
 ## Règles de tri
 
 Les règles sont dans `config/rules.json`.
@@ -43,6 +55,13 @@ Les règles sont dans `config/rules.json`.
 - `mark_read: true` retire aussi `UNREAD`
 - `trash: true` envoie les messages à la corbeille
 - `max_messages` limite le volume traité par exécution
+
+Les règles ont été resserrées pour :
+
+- séparer `☁️ Cloud` des newsletters
+- sortir les plateformes emploi du label `💼 Recrutement`
+- limiter `📅 À Traiter` aux non lus récents et réellement actionnables
+- éviter de retraiter les mêmes messages grâce aux exclusions `-label:"..."`
 
 ## Purge prudente
 
@@ -60,6 +79,17 @@ La purge est configurée en deux étapes :
    - exclut `is:starred` et `is:important`
 
 Cette approche évite de supprimer brutalement des mails dès leur première détection.
+
+## Migration de l'historique
+
+Le script `scripts/gmail-migrate-mailbox.sh` applique des corrections ciblées sur l'existant :
+
+- reclasse `PlatformNotifications-noreply@google.com` vers `☁️ Cloud`
+- déplace les plateformes emploi hors de `💼 Recrutement` et `📌 Administratif`
+- retire `📅 À Traiter` des vieux mails et du bruit
+- marque comme lus les anciens emails déjà classés comme bruit
+
+Le script fonctionne aussi avec `DRY_RUN=true`.
 
 ## GitHub Actions
 
