@@ -95,6 +95,8 @@ Le script fonctionne aussi avec `DRY_RUN=true`.
 
 Le workflow quotidien est dans `.github/workflows/daily-gmail-sort.yml`.
 
+Le workflow manuel de migration historique est dans `.github/workflows/mailbox-migration.yml`.
+
 Secrets GitHub à créer dans `Settings > Secrets and variables > Actions` :
 
 - `GOOGLE_CLIENT_ID`
@@ -120,6 +122,8 @@ Le workflow peut être lancé :
 - manuellement via `workflow_dispatch`
 
 Le lancement manuel accepte un mode `dry_run`.
+
+Le workflow `Gmail Mailbox Migration` permet de lancer à la demande `scripts/gmail-migrate-mailbox.sh` depuis GitHub avec le même jeu de secrets.
 
 ## Push GitHub
 

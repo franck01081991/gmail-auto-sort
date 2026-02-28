@@ -1,0 +1,37 @@
+name: Gmail Mailbox Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Run without modifying Gmail
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: gmail-mailbox-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate tooling
+        run: |
+          bash --version
+          curl --version
+          jq --version
+
+      - name: Run mailbox migration
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+        run: bash scripts/gmail-migrate-mailbox.sh
