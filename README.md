@@ -91,6 +91,14 @@ Le script `scripts/gmail-migrate-mailbox.sh` applique des corrections ciblées s
 
 Le script fonctionne aussi avec `DRY_RUN=true`.
 
+## Idempotence
+
+Le tri quotidien et la migration historique sont conçus pour être relancés sans effet cumulatif incorrect :
+
+- les requêtes excluent autant que possible les messages déjà traités
+- les mutations retirent `INBOX`, `UNREAD` ou les anciens labels de source pour sortir du périmètre de la requête
+- en mode réel, les scripts repartent toujours de la première page après mutation pour éviter les trous liés à la pagination Gmail pendant les reclassements
+
 ## GitHub Actions
 
 Le workflow quotidien est dans `.github/workflows/daily-gmail-sort.yml`.

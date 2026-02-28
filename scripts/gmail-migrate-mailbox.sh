@@ -57,7 +57,7 @@ mutate_query() {
 
     local url
     url="$GMAIL_API_BASE/messages?maxResults=500&q=$(urlencode "$query")"
-    if [[ -n "$page_token" ]]; then
+    if [[ "$DRY_RUN" == "true" && -n "$page_token" ]]; then
       url="${url}&pageToken=$(urlencode "$page_token")"
     fi
 
@@ -102,8 +102,24 @@ mutate_query() {
       fi
     fi
 
-    page_token="$(jq -r '.nextPageToken // empty' <<<"$RESPONSE_BODY")"
-    if [[ -z "$page_token" ]] || (( max_messages > 0 && total_messages >= max_messages )); then
+    # Idempotence: like the sorter, migration refetches the first page after
+    # each real mutation so repeated runs keep shrinking the source query
+    # instead of skipping messages due to pagination drift.
+    if [[ "$DRY_RUN" == "true" ]]; then
+      page_token="$(jq -r '.nextPageToken // empty' <<<"$RESPONSE_BODY")"
+    else
+      page_token=""
+    fi
+
+    if (( max_messages > 0 && total_messages >= max_messages )); then
+      break
+    fi
+
+    if [[ "$DRY_RUN" == "true" && -z "$page_token" ]]; then
+      break
+    fi
+
+    if [[ "$DRY_RUN" != "true" && "$message_count" -eq 0 ]]; then
       break
     fi
   done
@@ -131,6 +147,14 @@ main() {
   fetch_labels
 
   mutate_query \
+    "Archivage historique bruit hors Inbox" \
+    'in:inbox (label:"📰 Newsletters" OR label:"🔎 Alertes Emploi" OR label:"🛒 Commandes" OR label:"📺 Streaming/Loisirs")' \
+    '[]' \
+    '["INBOX","UNREAD","📅 À Traiter"]' \
+    false \
+    20000
+
+  mutate_query \
     "☁️ Cloud notifications" \
     'from:PlatformNotifications-noreply@google.com -label:"☁️ Cloud"' \
     '["☁️ Cloud"]' \
@@ -144,7 +168,7 @@ main() {
     '["🔎 Alertes Emploi"]' \
     '["💼 Recrutement","📌 Administratif","📅 À Traiter","UNREAD","INBOX"]' \
     false \
-    5000
+    20000
 
   mutate_query \
     "Reclassement ATS utiles" \
@@ -160,7 +184,7 @@ main() {
     '[]' \
     '["📅 À Traiter"]' \
     false \
-    10000
+    20000
 
   mutate_query \
     "Marquage lu historique bruit" \
@@ -168,7 +192,7 @@ main() {
     '[]' \
     '["UNREAD"]' \
     false \
-    20000
+    50000
 
   log 'Migration de la boîte terminée.'
 }

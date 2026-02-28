@@ -261,7 +261,7 @@ apply_rule() {
 
     local url
     url="$GMAIL_API_BASE/messages?maxResults=500&q=$(urlencode "$query")"
-    if [[ -n "$page_token" ]]; then
+    if [[ "$DRY_RUN" == "true" && -n "$page_token" ]]; then
       url="${url}&pageToken=$(urlencode "$page_token")"
     fi
 
@@ -305,8 +305,24 @@ apply_rule() {
       fi
     fi
 
-    page_token="$(jq -r '.nextPageToken // empty' <<<"$RESPONSE_BODY")"
-    if [[ -z "$page_token" ]] || (( max_messages > 0 && total_messages >= max_messages )); then
+    # In real mode we always restart from the first page after each mutation.
+    # Gmail search results shift while labels are being changed, so refetching
+    # the head of the result set makes the operation converge safely on reruns.
+    if [[ "$DRY_RUN" == "true" ]]; then
+      page_token="$(jq -r '.nextPageToken // empty' <<<"$RESPONSE_BODY")"
+    else
+      page_token=""
+    fi
+
+    if (( max_messages > 0 && total_messages >= max_messages )); then
+      break
+    fi
+
+    if [[ "$DRY_RUN" == "true" && -z "$page_token" ]]; then
+      break
+    fi
+
+    if [[ "$DRY_RUN" != "true" && "$message_count" -eq 0 ]]; then
       break
     fi
   done
