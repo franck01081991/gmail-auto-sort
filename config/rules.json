@@ -1,42 +1,59 @@
 [
   {
     "label": "📌 Administratif",
-    "query": "in:inbox (from:banquepostale.fr OR from:floa.fr OR subject:(solde OR releve OR relevé OR securite OR sécurité OR facture))",
+    "query": "in:inbox (from:banquepostale.fr OR from:floa.fr OR subject:(solde OR releve OR relevé OR securite OR sécurité OR facture)) -label:\"📌 Administratif\"",
     "archive": false
   },
   {
     "label": "🔎 Alertes Emploi",
-    "query": "in:inbox (from:linkedin.com OR from:hellowork.com OR from:collective.work)",
-    "archive": true
+    "query": "in:inbox (from:linkedin.com OR from:hellowork.com OR from:collective.work) -label:\"🔎 Alertes Emploi\"",
+    "archive": true,
+    "mark_read": true
   },
   {
     "label": "💼 Recrutement",
-    "query": "in:inbox subject:(recrutement OR candidature OR entretien OR mission) -label:\"🔎 Alertes Emploi\"",
+    "query": "in:inbox subject:(recrutement OR candidature OR entretien OR mission) -label:\"🔎 Alertes Emploi\" -label:\"💼 Recrutement\"",
     "archive": false
   },
   {
     "label": "🛒 Commandes",
-    "query": "in:inbox (from:amazon.fr OR from:amazon.com OR from:uber.com OR from:cdiscount.com OR subject:(commande OR livraison OR expedi OR expédi))",
-    "archive": true
+    "query": "in:inbox (from:amazon.fr OR from:amazon.com OR from:uber.com OR from:cdiscount.com OR subject:(commande OR livraison OR expedi OR expédi)) -label:\"🛒 Commandes\"",
+    "archive": true,
+    "mark_read": true
   },
   {
     "label": "📺 Streaming/Loisirs",
-    "query": "in:inbox (from:twitch.tv OR subject:(live OR stream))",
-    "archive": true
+    "query": "in:inbox (from:twitch.tv OR subject:(live OR stream)) -label:\"📺 Streaming/Loisirs\"",
+    "archive": true,
+    "mark_read": true
   },
   {
     "label": "📰 Newsletters",
-    "query": "in:inbox category:promotions",
-    "archive": true
+    "query": "in:inbox category:promotions -label:\"📰 Newsletters\"",
+    "archive": true,
+    "mark_read": true
   },
   {
     "label": "🔧 Alertes Techniques",
-    "query": "in:inbox (from:netdata.cloud OR subject:webinar)",
+    "query": "in:inbox (from:netdata.cloud OR subject:webinar) -label:\"🔧 Alertes Techniques\"",
     "archive": false
   },
   {
     "label": "📅 À Traiter",
-    "query": "in:inbox is:unread -category:promotions -category:social -label:\"📰 Newsletters\" -label:\"🛒 Commandes\" -label:\"📺 Streaming/Loisirs\" -label:\"🔎 Alertes Emploi\"",
+    "query": "in:inbox is:unread -category:promotions -category:social -label:\"📰 Newsletters\" -label:\"🛒 Commandes\" -label:\"📺 Streaming/Loisirs\" -label:\"🔎 Alertes Emploi\" -label:\"📅 À Traiter\"",
     "archive": false
+  },
+  {
+    "label": "🗑️ Purge Candidats",
+    "query": "((label:\"📰 Newsletters\" older_than:30d) OR (label:\"📺 Streaming/Loisirs\" older_than:7d) OR (label:\"🔎 Alertes Emploi\" older_than:14d) OR (label:\"🛒 Commandes\" older_than:120d)) -label:\"🗑️ Purge Candidats\" -is:starred -is:important",
+    "archive": true,
+    "mark_read": true,
+    "max_messages": 500
+  },
+  {
+    "name": "🗑️ Corbeille Auto",
+    "query": "label:\"🗑️ Purge Candidats\" older_than:37d -is:starred -is:important",
+    "trash": true,
+    "max_messages": 500
   }
 ]

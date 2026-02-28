@@ -183,18 +183,71 @@ ensure_label() {
   printf '%s\n' "$label_id"
 }
 
+describe_action() {
+  local archive="$1"
+  local mark_read="$2"
+  local trash="$3"
+
+  if [[ "$trash" == "true" ]]; then
+    printf 'envoyés à la corbeille\n'
+    return 0
+  fi
+
+  if [[ "$archive" == "true" && "$mark_read" == "true" ]]; then
+    printf 'archivés et marqués comme lus\n'
+    return 0
+  fi
+
+  if [[ "$archive" == "true" ]]; then
+    printf 'archivés\n'
+    return 0
+  fi
+
+  if [[ "$mark_read" == "true" ]]; then
+    printf 'marqués comme lus\n'
+    return 0
+  fi
+
+  printf 'classés\n'
+}
+
 apply_rule() {
   local rule_json="$1"
-  local label_name query archive label_id page_token total_messages message_count ids_json payload remove_json
+  local rule_name label_name query archive mark_read trash label_id page_token total_messages
+  local message_count ids_json payload remove_json add_json max_messages remaining_messages
 
-  label_name="$(jq -r '.label' <<<"$rule_json")"
+  rule_name="$(jq -r '.name // .label // "Règle sans nom"' <<<"$rule_json")"
+  label_name="$(jq -r '.label // empty' <<<"$rule_json")"
   query="$(jq -r '.query' <<<"$rule_json")"
-  archive="$(jq -r '.archive' <<<"$rule_json")"
-  label_id="$(ensure_label "$label_name")"
+  archive="$(jq -r '.archive // false' <<<"$rule_json")"
+  mark_read="$(jq -r '.mark_read // false' <<<"$rule_json")"
+  trash="$(jq -r '.trash // false' <<<"$rule_json")"
+  max_messages="$(jq -r '.max_messages // 0' <<<"$rule_json")"
+  label_id=""
+  add_json='[]'
+  remove_json="$(
+    jq -nc \
+      --argjson archive "$archive" \
+      --argjson mark_read "$mark_read" \
+      '[
+        if $archive then "INBOX" else empty end,
+        if $mark_read then "UNREAD" else empty end
+      ]'
+  )"
+
+  if [[ "$trash" != "true" && -n "$label_name" ]]; then
+    label_id="$(ensure_label "$label_name")"
+    add_json="$(jq -nc --arg label_id "$label_id" '[$label_id]')"
+  fi
+
   total_messages=0
   page_token=""
 
   while true; do
+    if (( max_messages > 0 && total_messages >= max_messages )); then
+      break
+    fi
+
     local url
     url="$GMAIL_API_BASE/messages?maxResults=500&q=$(urlencode "$query")"
     if [[ -n "$page_token" ]]; then
@@ -206,49 +259,56 @@ apply_rule() {
     message_count="$(jq 'length' <<<"$ids_json")"
 
     if (( message_count > 0 )); then
+      if (( max_messages > 0 )); then
+        remaining_messages=$((max_messages - total_messages))
+        if (( message_count > remaining_messages )); then
+          ids_json="$(jq -c --argjson limit "$remaining_messages" '.[:$limit]' <<<"$ids_json")"
+          message_count="$remaining_messages"
+        fi
+      fi
+
       total_messages=$((total_messages + message_count))
       if [[ "$DRY_RUN" == "true" ]]; then
-        log "[DRY RUN][$label_name] $total_messages messages détectés"
+        log "[DRY RUN][$rule_name] $total_messages messages détectés"
       else
-        if [[ "$archive" == "true" ]]; then
-          remove_json='["INBOX"]'
+        if [[ "$trash" == "true" ]]; then
+          while IFS= read -r message_id; do
+            [[ -n "$message_id" ]] || continue
+            api_request POST "$GMAIL_API_BASE/messages/$message_id/trash" '{}'
+          done < <(jq -r '.[]' <<<"$ids_json")
         else
-          remove_json='[]'
+          payload="$(
+            jq -nc \
+              --argjson ids "$ids_json" \
+              --argjson add_ids "$add_json" \
+              --argjson remove_ids "$remove_json" \
+              '{
+                ids: $ids,
+                addLabelIds: $add_ids,
+                removeLabelIds: $remove_ids
+              }'
+          )"
+          api_request POST "$GMAIL_API_BASE/messages/batchModify" "$payload"
         fi
-
-        payload="$(
-          jq -nc \
-            --argjson ids "$ids_json" \
-            --arg label_id "$label_id" \
-            --argjson remove_ids "$remove_json" \
-            '{
-              ids: $ids,
-              addLabelIds: [$label_id],
-              removeLabelIds: $remove_ids
-            }'
-        )"
-        api_request POST "$GMAIL_API_BASE/messages/batchModify" "$payload"
-        log "[$label_name] $total_messages messages traités"
+        log "[$rule_name] $total_messages messages traités"
       fi
     fi
 
     page_token="$(jq -r '.nextPageToken // empty' <<<"$RESPONSE_BODY")"
-    if [[ -z "$page_token" ]]; then
+    if [[ -z "$page_token" ]] || (( max_messages > 0 && total_messages >= max_messages )); then
       break
     fi
   done
 
   if (( total_messages == 0 )); then
-    log "[$label_name] aucun message correspondant"
+    log "[$rule_name] aucun message correspondant"
     return 0
   fi
 
   if [[ "$DRY_RUN" == "true" ]]; then
-    log "[$label_name] simulation terminée: $total_messages messages"
-  elif [[ "$archive" == "true" ]]; then
-    log "[$label_name] terminé: $total_messages messages archivés"
+    log "[$rule_name] simulation terminée: $total_messages messages"
   else
-    log "[$label_name] terminé: $total_messages messages classés"
+    log "[$rule_name] terminé: $total_messages messages $(describe_action "$archive" "$mark_read" "$trash")"
   fi
 }
 

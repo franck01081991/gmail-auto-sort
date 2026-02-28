@@ -40,6 +40,26 @@ Les règles sont dans `config/rules.json`.
 
 - `archive: true` applique le libellé puis retire `INBOX`
 - `archive: false` applique seulement le libellé
+- `mark_read: true` retire aussi `UNREAD`
+- `trash: true` envoie les messages à la corbeille
+- `max_messages` limite le volume traité par exécution
+
+## Purge prudente
+
+La purge est configurée en deux étapes :
+
+1. `🗑️ Purge Candidats` :
+   - prend les emails déjà classés comme bruit
+   - applique un délai minimum selon la catégorie
+   - archive et marque comme lus
+   - limite le volume à `500` messages par run
+
+2. `🗑️ Corbeille Auto` :
+   - envoie en corbeille uniquement les emails déjà marqués comme candidats
+   - laisse une fenêtre de grâce avant suppression automatique par Gmail
+   - exclut `is:starred` et `is:important`
+
+Cette approche évite de supprimer brutalement des mails dès leur première détection.
 
 ## GitHub Actions
 
